@@ -375,7 +375,7 @@ TOOL_CONTEXTS: Dict[str, ToolContext] = {
         suggested_server="research-server",
         depends_on_config=["osf_config.json"],
         tags=["read-only", "api", "osf", "authenticated"],
-        notes="Requires OSF personal access token",
+        notes="Requires personal access token in config/osf_config.json",
     ),
     "osf_download_file": ToolContext(
         category="research",
