@@ -301,7 +301,7 @@ def knowledge_status(config, args: Dict[str, Any]) -> Dict[str, Any]:
             "temperature_counts": temperature_counts,
             "ingest_status_counts": ingest_status_counts,
             "ocr_needed_count": ocr_needed_count,
-            "provenance": build_provenance(config.wanatux_host, []),
+            "provenance": build_provenance(config.homelab_host, []),
         }
     except Exception as exc:
         logger.error("Knowledge status failed: %s", exc, exc_info=True)
@@ -311,7 +311,7 @@ def knowledge_status(config, args: Dict[str, Any]) -> Dict[str, Any]:
             error_code="UNKNOWN",
             likely_causes=["Unexpected error reading knowledge.db"],
             suggested_next_tools=[{"tool": "meta.health", "args": {}}],
-            host=config.wanatux_host,
+            host=config.homelab_host,
         )
 
     audit_entry = build_audit_entry("knowledge.status", args, [], "knowledge status", error_code=result.get("error_code"))
@@ -419,7 +419,7 @@ def knowledge_ocr_queue(config, args: Dict[str, Any]) -> Dict[str, Any]:
             "queue": queue,
             "category_breakdown": category_counts,
             "entity_breakdown": entity_counts,
-            "provenance": build_provenance(config.wanatux_host, []),
+            "provenance": build_provenance(config.homelab_host, []),
         }
     except Exception as exc:
         logger.error("OCR queue failed: %s", exc, exc_info=True)
@@ -429,7 +429,7 @@ def knowledge_ocr_queue(config, args: Dict[str, Any]) -> Dict[str, Any]:
             error_code="UNKNOWN",
             likely_causes=["Database query error"],
             suggested_next_tools=[{"tool": "knowledge.status", "args": {}}],
-            host=config.wanatux_host,
+            host=config.homelab_host,
         )
 
     audit_entry = build_audit_entry("knowledge.ocr_queue", args, [], f"ocr queue: {len(queue)} docs", error_code=result.get("error_code"))
@@ -447,7 +447,7 @@ def knowledge_search(config, args: Dict[str, Any]) -> Dict[str, Any]:
             error_code="INVALID_ARGS",
             likely_causes=["Missing query argument"],
             suggested_next_tools=[{"tool": "knowledge.status", "args": {}}],
-            host=config.wanatux_host,
+            host=config.homelab_host,
         )
         audit_entry = build_audit_entry("knowledge.search", args, [], "query missing", error_code="INVALID_ARGS")
         append_audit_log(config.audit_log_path, audit_entry)
@@ -471,7 +471,7 @@ def knowledge_search(config, args: Dict[str, Any]) -> Dict[str, Any]:
             error_code="INVALID_ARGS",
             likely_causes=["Invalid year format"],
             suggested_next_tools=[{"tool": "knowledge.search", "args": {"query": query}}],
-            host=config.wanatux_host,
+            host=config.homelab_host,
         )
         audit_entry = build_audit_entry("knowledge.search", args, [], "invalid year", error_code="INVALID_ARGS")
         append_audit_log(config.audit_log_path, audit_entry)
@@ -489,7 +489,7 @@ def knowledge_search(config, args: Dict[str, Any]) -> Dict[str, Any]:
                 error_code="INVALID_ARGS",
                 likely_causes=["Invalid min_quality_score format"],
                 suggested_next_tools=[{"tool": "knowledge.search", "args": {"query": query}}],
-                host=config.wanatux_host,
+                host=config.homelab_host,
             )
             audit_entry = build_audit_entry("knowledge.search", args, [], "invalid min_quality_score", error_code="INVALID_ARGS")
             append_audit_log(config.audit_log_path, audit_entry)
@@ -779,7 +779,7 @@ def knowledge_search(config, args: Dict[str, Any]) -> Dict[str, Any]:
             "limit": limit,
             "offset": offset,
             "results": results,
-            "provenance": build_provenance(config.wanatux_host, []),
+            "provenance": build_provenance(config.homelab_host, []),
         }
     except Exception as exc:
         logger.error("Knowledge search failed: %s", exc, exc_info=True)
@@ -789,7 +789,7 @@ def knowledge_search(config, args: Dict[str, Any]) -> Dict[str, Any]:
             error_code="UNKNOWN",
             likely_causes=["Unexpected error querying knowledge.db"],
             suggested_next_tools=[{"tool": "knowledge.status", "args": {}}],
-            host=config.wanatux_host,
+            host=config.homelab_host,
         )
 
     audit_entry = build_audit_entry("knowledge.search", args, [], truncate_text(str(result), config.audit_preview_limit)[0], error_code=result.get("error_code"))
@@ -1293,7 +1293,7 @@ def knowledge_bootstrap_context(config, args: Dict[str, Any]) -> Dict[str, Any]:
                 "noise_archived": noise_result.get("archived", 0),
             },
             "warnings": warnings,
-            "provenance": build_provenance(config.wanatux_host, []),
+            "provenance": build_provenance(config.homelab_host, []),
         }
         if include_devloop:
             result["devloop"] = devloop_summary
@@ -1305,7 +1305,7 @@ def knowledge_bootstrap_context(config, args: Dict[str, Any]) -> Dict[str, Any]:
             error_code="UNKNOWN",
             likely_causes=["Knowledge DB schema missing context_pins table"],
             suggested_next_tools=[{"tool": "knowledge.status", "args": {}}],
-            host=config.wanatux_host,
+            host=config.homelab_host,
         )
         result["warnings"] = warnings
     except Exception as exc:
@@ -1316,7 +1316,7 @@ def knowledge_bootstrap_context(config, args: Dict[str, Any]) -> Dict[str, Any]:
             error_code="UNKNOWN",
             likely_causes=["Unexpected error generating bootstrap context"],
             suggested_next_tools=[{"tool": "knowledge.status", "args": {}}],
-            host=config.wanatux_host,
+            host=config.homelab_host,
         )
 
     audit_entry = build_audit_entry("knowledge.bootstrap_context", args, [], truncate_text(str(result), config.audit_preview_limit)[0], error_code=result.get("error_code"))
@@ -1374,7 +1374,7 @@ def knowledge_context_mark(config, args: Dict[str, Any]) -> Dict[str, Any]:
             error_code="INVALID_ARGS",
             likely_causes=["Missing query text"],
             suggested_next_tools=[{"tool": "knowledge.search", "args": {}}],
-            host=config.wanatux_host,
+            host=config.homelab_host,
         )
 
     details = {"s_components": [], "decay_applied": 0, "compliance": compliance,
@@ -1515,9 +1515,10 @@ def knowledge_context_mark(config, args: Dict[str, Any]) -> Dict[str, Any]:
                     placeholders = ",".join("?" for _ in promote_ids)
                     cursor = conn.execute(
                         f"""UPDATE documents 
-                            SET temperature = 'hot', promoted_at = ?
+                            SET temperature = 'hot',
+                                promoted_at = COALESCE(promoted_at, ?)
                             WHERE doc_id IN ({placeholders})
-                            AND temperature != 'hot'""",
+                            AND (temperature != 'hot' OR promoted_at IS NULL)""",
                         [now] + promote_ids,
                     )
                     promoted_count = cursor.rowcount
@@ -1565,7 +1566,7 @@ def knowledge_context_mark(config, args: Dict[str, Any]) -> Dict[str, Any]:
             "promotion_cap": MAX_PROMOTIONS,
             "decay_applied": details.get("decay_applied", 0),
             "random_reinforced": random_reinforced,
-            "provenance": build_provenance(config.wanatux_host, []),
+            "provenance": build_provenance(config.homelab_host, []),
         }
     except Exception as exc:
         logger.error("Context mark failed: %s", exc, exc_info=True)
@@ -1575,7 +1576,7 @@ def knowledge_context_mark(config, args: Dict[str, Any]) -> Dict[str, Any]:
             error_code="UNKNOWN",
             likely_causes=["Failed to write context_marks table"],
             suggested_next_tools=[{"tool": "knowledge.status", "args": {}}],
-            host=config.wanatux_host,
+            host=config.homelab_host,
         )
 
     audit_entry = build_audit_entry(
@@ -1606,7 +1607,7 @@ def knowledge_reindex(config, args: Dict[str, Any]) -> Dict[str, Any]:
                 error_code="INVALID_ARGS",
                 likely_causes=["Root path must be absolute"],
                 suggested_next_tools=[{"tool": "knowledge.reindex", "args": {"roots": ["/opt/homelab-panel"]}}],
-                host=config.wanatux_host,
+                host=config.homelab_host,
             )
             audit_entry = build_audit_entry("knowledge.reindex", args, [], "root not absolute", error_code="INVALID_ARGS")
             append_audit_log(config.audit_log_path, audit_entry)
@@ -1618,7 +1619,7 @@ def knowledge_reindex(config, args: Dict[str, Any]) -> Dict[str, Any]:
                 error_code="ALLOWLIST_VIOLATION",
                 likely_causes=["Root path outside MCP_REPO_ROOTS allowlist"],
                 suggested_next_tools=[{"tool": "meta.validate_config", "args": {}}],
-                host=config.wanatux_host,
+                host=config.homelab_host,
             )
             audit_entry = build_audit_entry("knowledge.reindex", args, [], "root not allowlisted", error_code="ALLOWLIST_VIOLATION")
             append_audit_log(config.audit_log_path, audit_entry)
@@ -1635,7 +1636,7 @@ def knowledge_reindex(config, args: Dict[str, Any]) -> Dict[str, Any]:
             error_code="PATH_MISSING",
             likely_causes=["Indexer script missing or not deployed"],
             suggested_next_tools=[{"tool": "scripts_list", "args": {"path": "/opt/homelab-panel/scripts"}}],
-            host=config.wanatux_host,
+            host=config.homelab_host,
         )
         audit_entry = build_audit_entry("knowledge.reindex", args, [], "script missing", error_code="PATH_MISSING")
         append_audit_log(config.audit_log_path, audit_entry)
@@ -1666,7 +1667,7 @@ def knowledge_reindex(config, args: Dict[str, Any]) -> Dict[str, Any]:
         "stderr": command_result.get("stderr", ""),
         "exit_code": command_result.get("exit_code"),
         "duration_ms": command_result.get("duration_ms"),
-        "provenance": build_provenance(config.wanatux_host, [command_result]),
+        "provenance": build_provenance(config.homelab_host, [command_result]),
     }
 
     audit_entry = build_audit_entry("knowledge.reindex", args, [command_result], truncate_text(str(result), config.audit_preview_limit)[0], error_code=result.get("error_code"))
@@ -1708,7 +1709,7 @@ def knowledge_resurrect(config, args: Dict[str, Any]) -> Dict[str, Any]:
                     "action": "list",
                     "count": len(rows),
                     "archived_docs": [dict(r) for r in rows],
-                    "provenance": build_provenance(config.wanatux_host, []),
+                    "provenance": build_provenance(config.homelab_host, []),
                 }
 
             elif action == "restore":
@@ -1770,7 +1771,7 @@ def knowledge_resurrect(config, args: Dict[str, Any]) -> Dict[str, Any]:
                     "file_name": row["file_name"],
                     "new_temperature": "warm",
                     "message": f"Restored {row['file_name']} from archive to warm.",
-                    "provenance": build_provenance(config.wanatux_host, []),
+                    "provenance": build_provenance(config.homelab_host, []),
                 }
             else:
                 return error_response("knowledge.resurrect", f"Unknown action: {action}", error_code="BAD_ACTION")

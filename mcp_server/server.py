@@ -17,6 +17,14 @@ from .tools.docs_tools import DOCS_TOOLS
 from .tools.script_tools import SCRIPT_TOOLS
 from .tools.knowledge_tools import KNOWLEDGE_TOOLS
 from .tools.devloop_tools import DEVLOOP_TOOLS
+from .tools.financial_tools import FINANCIAL_TOOLS
+from .tools.automation_tools import AUTOMATION_TOOLS
+from .tools.maintenance_tools import MAINTENANCE_TOOLS
+from .tools.osf_tools import OSF_TOOLS
+from .tools.osf_tools_auth import OSF_AUTH_TOOLS
+from .tools.decision_capture_tools import DECISION_CAPTURE_TOOLS
+from .tools.memory_tools import MEMORY_TOOLS
+from .tools.script_organize import SCRIPT_ORGANIZE_TOOLS
 from .tool_metadata import (
     TOOL_CONTEXTS,
     SERVER_CATEGORIES,
@@ -45,7 +53,10 @@ class MCPServer:
         logger.info("Initializing MCP Homelab Server")
         self._register_tools(
             LAB_TOOLS + MCP_META_TOOLS + KNOWLEDGE_TOOLS +
-            DEVLOOP_TOOLS + GIT_TOOLS + DOCS_TOOLS + SCRIPT_TOOLS
+            DEVLOOP_TOOLS + GIT_TOOLS + DOCS_TOOLS + SCRIPT_TOOLS +
+            FINANCIAL_TOOLS + AUTOMATION_TOOLS + MAINTENANCE_TOOLS +
+            OSF_TOOLS + OSF_AUTH_TOOLS + DECISION_CAPTURE_TOOLS +
+            MEMORY_TOOLS + SCRIPT_ORGANIZE_TOOLS
         )
         logger.info(f"Registered {len(self._tool_list)} MCP tools")
         

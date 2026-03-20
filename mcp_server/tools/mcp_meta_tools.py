@@ -7,10 +7,11 @@ This module provides MCP tools for managing and creating new MCP tools.
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-from mcp_homelab.core import get_script_logger
+from mcp_homelab.core import get_db_connection, get_script_logger
 from mcp_homelab.errors import error_response
 from mcp_homelab.tool_metadata import (
     TOOL_CONTEXTS,
@@ -91,7 +92,7 @@ def list_tool_metadata(config, args: Dict[str, Any]) -> Dict[str, Any]:
             "safety_level": safety_filter,
             "server": server_filter,
         },
-        "provenance": build_provenance(config.wanatux_host, []),
+        "provenance": build_provenance(config.homelab_host, []),
     }
     
     audit_entry = build_audit_entry("mcp_list_metadata", args, [], "")
@@ -137,7 +138,7 @@ def show_server_plan(config, args: Dict[str, Any]) -> Dict[str, Any]:
         "servers": servers,
         "total_servers": len(servers),
         "ready_servers": sum(1 for s in servers.values() if s["status"] == "ready"),
-        "provenance": build_provenance(config.wanatux_host, []),
+        "provenance": build_provenance(config.homelab_host, []),
     }
     
     audit_entry = build_audit_entry("mcp_server_plan", args, [], "")
@@ -180,7 +181,7 @@ def generate_new_tool(config, args: Dict[str, Any]) -> Dict[str, Any]:
         result = {
             "ok": False,
             "error": "; ".join(errors),
-            "provenance": build_provenance(config.wanatux_host, []),
+            "provenance": build_provenance(config.homelab_host, []),
         }
         audit_entry = build_audit_entry("mcp_generate_tool", args, [], "")
         append_audit_log(config.audit_log_path, audit_entry)
@@ -229,7 +230,7 @@ def {tool_name}_handler(config, args: Dict[str, Any]) -> Dict[str, Any]:
         result = {{
             "ok": False,
             "error": "This operation requires confirmation. Set confirm=true",
-            "provenance": build_provenance(config.wanatux_host, []),
+            "provenance": build_provenance(config.homelab_host, []),
         }}
         audit_entry = build_audit_entry("{tool_name}", args, [], "")
         append_audit_log(config.audit_log_path, audit_entry)
@@ -242,7 +243,7 @@ def {tool_name}_handler(config, args: Dict[str, Any]) -> Dict[str, Any]:
         "ok": True,
         "message": "Tool executed successfully",
         {f'"dry_run": dry_run,' if supports_dry_run else ''}
-        "provenance": build_provenance(config.wanatux_host, []),
+        "provenance": build_provenance(config.homelab_host, []),
     }}
     
     audit_entry = build_audit_entry("{tool_name}", args, [], "")
@@ -302,7 +303,7 @@ def {tool_name}_handler(config, args: Dict[str, Any]) -> Dict[str, Any]:
             "4. Import and register in mcp_homelab/server.py",
             "5. Test with: PYTHONPATH=/opt/homelab-panel python3 scripts/automation/inspect_mcp_metadata.py validate",
         ],
-        "provenance": build_provenance(config.wanatux_host, []),
+        "provenance": build_provenance(config.homelab_host, []),
     }
     
     audit_entry = build_audit_entry("mcp_generate_tool", args, [], f"Generated {tool_name}")
@@ -329,7 +330,7 @@ def meta_server_info(config, args: Dict[str, Any]) -> Dict[str, Any]:
         "tool_count": summary.get("total_tools", 0),
         "categories": categories,
         "capabilities": capabilities,
-        "provenance": build_provenance(config.wanatux_host, []),
+        "provenance": build_provenance(config.homelab_host, []),
     }
     audit_entry = build_audit_entry("meta.server_info", args, [], "")
     append_audit_log(config.audit_log_path, audit_entry)
@@ -399,7 +400,7 @@ def meta_health(config, args: Dict[str, Any]) -> Dict[str, Any]:
     result = {
         "ok": overall_ok,
         "checks": checks,
-        "provenance": build_provenance(config.wanatux_host, []),
+        "provenance": build_provenance(config.homelab_host, []),
     }
     audit_entry = build_audit_entry("meta.health", args, [], "")
     append_audit_log(config.audit_log_path, audit_entry)
@@ -452,7 +453,7 @@ def meta_validate_config(config, args: Dict[str, Any]) -> Dict[str, Any]:
             "wanatux_compose_service": config.wanatux_compose_service,
             "wanatux_restart_script": config.wanatux_restart_script,
         },
-        "provenance": build_provenance(config.wanatux_host, []),
+        "provenance": build_provenance(config.homelab_host, []),
     }
     audit_entry = build_audit_entry("meta.validate_config", args, [], "")
     append_audit_log(config.audit_log_path, audit_entry)
@@ -468,7 +469,7 @@ def meta_discover_services(config, args: Dict[str, Any]) -> Dict[str, Any]:
             error_code="INVALID_ARGS",
             likely_causes=["Invalid pattern argument"],
             suggested_next_tools=[{"tool": "meta.validate_config", "args": {}}],
-            host=config.wanatux_host,
+            host=config.homelab_host,
         )
         audit_entry = build_audit_entry("meta.discover_services", args, [], "invalid pattern", error_code="INVALID_ARGS")
         append_audit_log(config.audit_log_path, audit_entry)
@@ -522,11 +523,156 @@ def meta_discover_services(config, args: Dict[str, Any]) -> Dict[str, Any]:
         "compose_services": compose_services,
         "systemd_status": systemd_status,
         "compose_status": compose_status,
-        "provenance": build_provenance(config.wanatux_host, []),
+        "provenance": build_provenance(config.homelab_host, []),
     }
     audit_entry = build_audit_entry("meta.discover_services", args, [], "")
     append_audit_log(config.audit_log_path, audit_entry)
     return result
+
+
+# ── Tool Lifecycle Report ──
+
+# Core tools that must always appear in tools/list (never decay)
+PINNED_TOOLS = frozenset({
+    "memory.recall", "memory.confirm",
+    "devloop.log", "devloop.search", "devloop.latest", "devloop.get_artifact",
+    "knowledge.status", "knowledge.search", "knowledge.bootstrap_context",
+    "knowledge.context_mark", "knowledge.reindex", "knowledge.ocr_queue",
+    "meta.server_info", "meta.health", "meta.validate_config", "meta.discover_services",
+    "mcp_list_metadata", "mcp_generate_tool", "mcp_server_restart",
+    "lab_status", "lab_logs", "lab_restart",
+    "todo.list", "todo.capture", "todo.complete", "todo.update",
+    "todo.review_next", "todo.session_status",
+})
+
+
+def tool_lifecycle_report(config, args: Dict[str, Any]) -> Dict[str, Any]:
+    """Read-only lifecycle report: score each MCP tool by usage heat."""
+    try:
+        with get_db_connection("knowledge") as conn:
+            # 30-day tool call stats
+            rows = conn.execute(
+                "SELECT tool_name, COUNT(*) as calls, "
+                "  MAX(timestamp) as last_call, "
+                "  COUNT(DISTINCT date(timestamp)) as unique_days "
+                "FROM mcp_tool_calls "
+                "WHERE timestamp >= datetime('now', '-30 days') "
+                "GROUP BY tool_name "
+                "ORDER BY calls DESC"
+            ).fetchall()
+
+            call_stats = {}
+            for r in rows:
+                call_stats[r[0]] = {
+                    "calls_30d": r[1],
+                    "last_call": r[2],
+                    "unique_days": r[3],
+                }
+
+            # Unique models per tool (from devloop_artifacts + mcp_tool_calls user col)
+            model_rows = conn.execute(
+                "SELECT tool_name, COUNT(DISTINCT user) as unique_users "
+                "FROM mcp_tool_calls "
+                "WHERE timestamp >= datetime('now', '-30 days') "
+                "  AND user != 'system' "
+                "GROUP BY tool_name"
+            ).fetchall()
+            model_counts = {r[0]: r[1] for r in model_rows}
+
+        # Build report for all known tools
+        now = datetime.now(timezone.utc)
+        all_tools = set(TOOL_CONTEXTS.keys()) | set(call_stats.keys())
+
+        report = []
+        for tool_name in sorted(all_tools):
+            stats = call_stats.get(tool_name, {})
+            calls = stats.get("calls_30d", 0)
+            unique_days = stats.get("unique_days", 0)
+            unique_models = model_counts.get(tool_name, 0)
+            last_call = stats.get("last_call")
+
+            # Days since last call
+            days_since = 999
+            if last_call:
+                try:
+                    last_dt = datetime.fromisoformat(last_call.replace("+00:00", "+00:00"))
+                    if last_dt.tzinfo is None:
+                        last_dt = last_dt.replace(tzinfo=timezone.utc)
+                    days_since = (now - last_dt).days
+                except (ValueError, TypeError):
+                    days_since = 999
+
+            is_pinned = tool_name in PINNED_TOOLS
+
+            # Heat score
+            heat = (
+                (calls * 2.0)
+                + (unique_days * 5.0)
+                + (unique_models * 10.0)
+                - (min(days_since, 30) * 1.5)
+            )
+
+            # Temperature
+            if is_pinned:
+                temp = "pinned"
+            elif heat >= 50:
+                temp = "hot"
+            elif heat >= 15:
+                temp = "warm"
+            elif calls > 0:
+                temp = "cold"
+            else:
+                temp = "unused"
+
+            # Action recommendation
+            if is_pinned:
+                action, reason = "keep", "Core protocol tool"
+            elif temp == "hot":
+                action, reason = "keep", f"High usage ({calls} calls, {unique_days} days)"
+            elif temp == "warm":
+                action, reason = "monitor", f"Active but sparse ({calls} calls)"
+            elif temp == "cold":
+                action, reason = "demote_candidate", f"Stale ({days_since}d since last call)"
+            else:
+                action, reason = "remove_candidate", "Never called in 30 days"
+
+            # Category from metadata
+            ctx = TOOL_CONTEXTS.get(tool_name)
+            category = ctx.category if ctx else "unknown"
+
+            report.append({
+                "tool_name": tool_name,
+                "category": category,
+                "temperature": temp,
+                "heat_score": round(heat, 1),
+                "calls_30d": calls,
+                "unique_days": unique_days,
+                "unique_models": unique_models,
+                "days_since_last_call": days_since if days_since < 999 else None,
+                "action": action,
+                "reason": reason,
+            })
+
+        # Sort: pinned first, then by heat descending
+        temp_order = {"pinned": 0, "hot": 1, "warm": 2, "cold": 3, "unused": 4}
+        report.sort(key=lambda r: (temp_order.get(r["temperature"], 5), -r["heat_score"]))
+
+        # Summary counts
+        summary = {}
+        for r in report:
+            t = r["temperature"]
+            summary[t] = summary.get(t, 0) + 1
+
+        return {
+            "ok": True,
+            "summary": summary,
+            "total_tools": len(report),
+            "total_calls_30d": sum(r["calls_30d"] for r in report),
+            "report": report,
+        }
+
+    except Exception as exc:
+        return error_response("UNKNOWN", str(exc))
 
 
 # Tool exports
@@ -587,5 +733,14 @@ MCP_META_TOOLS = [
             },
         },
         "handler": meta_discover_services,
+    },
+    {
+        "name": "meta.tool_lifecycle_report",
+        "description": "Read-only lifecycle report: score each MCP tool by usage heat (calls, sessions, models). Returns temperature (pinned/hot/warm/cold/unused) and action recommendations. Phase 1 — no mutations.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+        "handler": tool_lifecycle_report,
     },
 ]

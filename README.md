@@ -31,7 +31,15 @@ mcp_server/
     script_tools.py       Safe script execution with allowlist
     knowledge_tools.py    FTS5 knowledge base (index, search, tiered recall)
     devloop_tools.py      Dev session logging and artifact management
-    mcp_meta_tools.py     Server introspection, health, config validation
+    mcp_meta_tools.py     Server introspection, health, config validation, tool lifecycle
+    financial_tools.py    Financial analysis and expense tracking
+    automation_tools.py   Task automation and scheduling helpers
+    maintenance_tools.py  System maintenance (cleanup, refresh, dedup)
+    osf_tools.py          Open Science Framework integration
+    osf_tools_auth.py     OSF authenticated operations (upload, update)
+    decision_capture_tools.py  Epistemic decision logging (TAR/TMR metrics)
+    memory_tools.py       Persistent memory recall and confirmation
+    script_organize.py    Script discovery and organization
 ```
 
 ---
@@ -66,6 +74,10 @@ class ToolContext:
     suggested_server: Optional[str]  # for future multi-server splits
     tags: List[str]
 ```
+
+### Tool lifecycle reporting
+
+The `tool_lifecycle_report` tool scores each registered tool by 30-day usage heat, identifies unused tools, and flags pinned (always-available) tools. Useful for pruning or splitting large tool sets across servers.
 
 ### Structured audit log
 
@@ -125,7 +137,7 @@ python -m mcp_server
       "cwd": "/path/to/mcp-homelab-server",
       "env": {
         "MCP_REPO_ROOTS": "/path/to/your/repo",
-        "WANATUX_SYSTEMD_SERVICE": "your-service"
+        "HOMELAB_SYSTEMD_SERVICE": "your-service"
       }
     }
   }
@@ -134,17 +146,37 @@ python -m mcp_server
 
 ---
 
-## Included Tools
+## Included Tools (v0.3.0)
 
 | Category | Tools | Description |
 |----------|-------|-------------|
 | `lab` | `lab_status`, `lab_logs`, `lab_restart` | Service monitoring and control |
 | `git` | `git_status`, `git_diff`, `git_log`, `git_list_repos`, + more | Git operations across allowed repos |
 | `docs` | `docs_list`, `docs_read`, `docs_search` | Filesystem and document browsing |
-| `scripts` | `script_run`, `script_list` | Safe script execution with allowlist |
+| `scripts` | `script_run`, `script_list`, `script_organize` | Safe script execution + organization |
 | `knowledge` | `knowledge_search`, `knowledge_bootstrap_context`, `knowledge_status`, + more | FTS5 knowledge base with Ebbinghaus decay tiering |
 | `devloop` | `devloop_log`, `devloop_search`, `devloop_latest`, `devloop_run_start` | Dev session logging across AI models |
-| `meta` | `meta_health`, `meta_server_info`, `meta_validate_config`, `mcp_list_metadata` | Server introspection |
+| `meta` | `meta_health`, `meta_server_info`, `meta_validate_config`, `tool_lifecycle_report` | Server introspection + tool usage analytics |
+| `financial` | `financial_analyze_expenses` | Financial analysis and expense categorization |
+| `automation` | `automation_quick_wins_digest` | Task automation and scheduling helpers |
+| `maintenance` | `maintenance_cleanup_duplicates`, `maintenance_refresh_playlists`, + more | System maintenance and housekeeping |
+| `osf` | `osf_get_project`, `osf_list_files`, `osf_upload_file`, + more | Open Science Framework integration |
+| `decision` | `decision_capture_log`, `decision_capture_list`, `decision_capture_metrics` | Epistemic decision logging with TAR/TMR calibration |
+| `memory` | `memory_recall`, `memory_confirm` | Persistent cross-session memory system |
+
+---
+
+## Changelog
+
+### v0.3.0 (2026-03-20)
+- Added 8 new tool modules: financial, automation, maintenance, OSF, decision capture, memory, script organize
+- Tool lifecycle reporting with 30-day usage heat scoring
+- Updated tool_metadata.py with 68+ tool context entries
+- Improved knowledge_tools: better promote logic for hot tier
+
+### v0.2.1 (2026-03-01)
+- Initial public release with 7 tool modules
+- Core framework: MCP stdio transport, audit logging, safety gates, ToolContext system
 
 ---
 

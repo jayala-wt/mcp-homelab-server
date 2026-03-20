@@ -42,7 +42,7 @@ class ToolContext:
     
     # Dependencies
     depends_on_tools: List[str] = field(default_factory=list)
-    depends_on_config: List[str] = field(default_factory=list)  # e.g., ["repo_roots", "wanatux_mode"]
+    depends_on_config: List[str] = field(default_factory=list)  # e.g., ["repo_roots", "homelab_mode"]
     
     # Server assignment (for future splitting)
     suggested_server: Optional[str] = None  # "git-server", "docs-server", "homelab-server"
@@ -65,7 +65,7 @@ TOOL_CONTEXTS: Dict[str, ToolContext] = {
         external_services=["systemd", "docker"],
         safety_level="safe",
         expected_duration="fast",
-        depends_on_config=["wanatux_mode", "wanatux_systemd_service"],
+        depends_on_config=["homelab_mode", "homelab_systemd_service"],
         suggested_server="homelab-server",
         tags=["read-only", "monitoring"],
     ),
@@ -75,7 +75,7 @@ TOOL_CONTEXTS: Dict[str, ToolContext] = {
         external_services=["systemd", "docker"],
         safety_level="safe",
         expected_duration="fast",
-        depends_on_config=["wanatux_mode", "wanatux_systemd_service"],
+        depends_on_config=["homelab_mode", "homelab_systemd_service"],
         suggested_server="homelab-server",
         tags=["read-only", "logs"],
     ),
@@ -89,7 +89,7 @@ TOOL_CONTEXTS: Dict[str, ToolContext] = {
         expected_duration="medium",
         can_run_parallel=False,
         idempotent=True,
-        depends_on_config=["wanatux_mode", "wanatux_systemd_service"],
+        depends_on_config=["homelab_mode", "homelab_systemd_service"],
         suggested_server="homelab-server",
         tags=["write", "restart", "service-control"],
         notes="Uses sudo; restarts Flask/waitress only, NOT the MCP server process. Was 'destructive' but downgraded to 'modify' because destructive tools are hidden from VS Code agent.",
@@ -169,7 +169,17 @@ TOOL_CONTEXTS: Dict[str, ToolContext] = {
         tags=["read-only", "discovery", "services"],
         notes="Lists matching systemd units and docker compose services",
     ),
-    
+    "meta.tool_lifecycle_report": ToolContext(
+        category="mcp",
+        subcategory="lifecycle",
+        databases_used=["knowledge"],
+        safety_level="safe",
+        expected_duration="fast",
+        suggested_server="homelab-server",
+        tags=["read-only", "lifecycle", "analytics", "sigil"],
+        notes="Phase 1 read-only lifecycle report: heat scoring, temperature, recommendations per tool",
+    ),
+
     # EMAIL TOOLS
     "email_scan_gmail": ToolContext(
         category="email",
@@ -182,7 +192,7 @@ TOOL_CONTEXTS: Dict[str, ToolContext] = {
         expected_duration="slow",
         suggested_server="email-server",
         tags=["gmail", "import", "email"],
-        notes="Requires Gmail OAuth token",
+        notes="Fetches Gmail messages into raw_emails (default no keyword prefilter; supports keyword/custom Gmail query overrides). Requires valid OAuth token in config/oauth_token.json",
     ),
     
     # FINANCIAL TOOLS (1 tool)
@@ -436,8 +446,9 @@ TOOL_CONTEXTS: Dict[str, ToolContext] = {
     "wordpress_create_post": ToolContext(
         category="publishing",
         subcategory="content",
-        external_services=["wordpress_api"],
+        external_services=["example-wordpress.org"],
         safety_level="modify",
+        supports_dry_run=True,
         expected_duration="fast",
         suggested_server="publishing-server",
         tags=["write", "api", "wordpress", "content-management"],
@@ -446,7 +457,7 @@ TOOL_CONTEXTS: Dict[str, ToolContext] = {
     "wordpress_get_post": ToolContext(
         category="publishing",
         subcategory="content",
-        external_services=["wordpress_api"],
+        external_services=["example-wordpress.org"],
         safety_level="safe",
         expected_duration="fast",
         suggested_server="publishing-server",
@@ -455,7 +466,7 @@ TOOL_CONTEXTS: Dict[str, ToolContext] = {
     "wordpress_list_posts": ToolContext(
         category="publishing",
         subcategory="content",
-        external_services=["wordpress_api"],
+        external_services=["example-wordpress.org"],
         safety_level="safe",
         expected_duration="fast",
         suggested_server="publishing-server",
@@ -685,6 +696,49 @@ TOOL_CONTEXTS: Dict[str, ToolContext] = {
         notes="TAR/TMR/RR epistemic activation metrics.",
     ),
 
+    # JOB TOOLS (4 tools)
+    "job_tailor": ToolContext(
+        category="job-pipeline",
+        subcategory="tailoring",
+        databases_used=["jobs_pipeline"],
+        file_paths_accessed=["personal/resumes/"],
+        safety_level="safe",
+        expected_duration="fast",
+        suggested_server="homelab-server",
+        tags=["read-only", "job-search", "resume", "cover-letter"],
+        notes="Returns job + profile + resume context for the calling model to generate tailored docs",
+    ),
+    "job_list_top": ToolContext(
+        category="job-pipeline",
+        subcategory="query",
+        databases_used=["jobs_pipeline"],
+        safety_level="safe",
+        expected_duration="fast",
+        suggested_server="homelab-server",
+        tags=["read-only", "job-search", "browse"],
+        notes="Browse top-scoring jobs from the pipeline DB",
+    ),
+    "job_update_status": ToolContext(
+        category="job-pipeline",
+        subcategory="management",
+        databases_used=["jobs_pipeline"],
+        safety_level="modify",
+        expected_duration="fast",
+        suggested_server="homelab-server",
+        tags=["write", "job-search", "status"],
+        notes="Update job status in the pipeline (shortlisted, applying, applied, interview, etc.)",
+    ),
+    "job_save_output": ToolContext(
+        category="job-pipeline",
+        subcategory="output",
+        databases_used=["jobs_pipeline"],
+        safety_level="modify",
+        expected_duration="fast",
+        suggested_server="homelab-server",
+        tags=["write", "job-search", "resume", "cover-letter"],
+        notes="Persist generated resume/cover letter to DB so it appears in the job detail UI",
+    ),
+
     # CALENDAR TOOLS (3 tools)
     "calendar.status": ToolContext(
         category="calendar",
@@ -836,12 +890,14 @@ def validate_tool_contexts() -> Dict[str, Any]:
     from .tools.devloop_tools import DEVLOOP_TOOLS
     from .tools.decision_capture_tools import DECISION_CAPTURE_TOOLS
     from .tools.memory_tools import MEMORY_TOOLS
-    
+    from .tools.job_tools import JOB_TOOLS
+
     all_registered_tools = (
         LAB_TOOLS + MCP_META_TOOLS + EMAIL_TOOLS + FINANCIAL_TOOLS +
         AUTOMATION_TOOLS + MAINTENANCE_TOOLS + OSF_TOOLS + WORDPRESS_TOOLS +
         TODO_TOOLS + CALENDAR_TOOLS + KNOWLEDGE_TOOLS + DEVLOOP_TOOLS +
-        DECISION_CAPTURE_TOOLS + EMAIL_ACTION_TOOLS + MEMORY_TOOLS
+        DECISION_CAPTURE_TOOLS + EMAIL_ACTION_TOOLS + MEMORY_TOOLS +
+        JOB_TOOLS
     )
     
     registered_names = {tool["name"] for tool in all_registered_tools}
