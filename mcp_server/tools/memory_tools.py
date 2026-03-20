@@ -75,7 +75,7 @@ MEMORY_TOOLS = [
             "Confirm a memory recall — reinforce results that were actually useful. "
             "Knowledge docs get access_count++ and possible warm→hot promotion. "
             "Devloop artifacts get recall_used_count++. "
-            "Also closes the Developer Sigil reinforcement loop: writes to context_marks table "
+            "Also closes the sigil reinforcement loop: writes to context_marks table "
             "and triggers Ebbinghaus decay on stale hot docs. "
             "Call this after using results from memory.recall to strengthen the memory."
         ),

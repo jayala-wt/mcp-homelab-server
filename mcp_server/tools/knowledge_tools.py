@@ -330,7 +330,7 @@ def knowledge_ocr_queue(config, args: Dict[str, Any]) -> Dict[str, Any]:
             # Priority scoring:
             # +50 if category in {legal, house, hr, tax}
             # +20 if year >= 2025
-            # +10 if entity in {ExampleBiz, John}
+            # +10 if entity matches priority entities
             # +(access_count * 5)
             # +10 if file_path contains high-value keywords
             cursor.execute(
@@ -347,7 +347,7 @@ def knowledge_ocr_queue(config, args: Dict[str, Any]) -> Dict[str, Any]:
                     (
                         CASE WHEN category IN ('legal', 'house', 'hr', 'tax') THEN 50 ELSE 0 END +
                         CASE WHEN year >= 2025 THEN 20 ELSE 0 END +
-                        CASE WHEN entity IN ('ExampleBiz', 'John') THEN 10 ELSE 0 END +
+                        CASE WHEN entity IN ('primary', 'default') THEN 10 ELSE 0 END +
                         (COALESCE(access_count, 0) * 5) +
                         CASE 
                             WHEN file_path LIKE '%Operating_Agreement%' OR 
@@ -1856,7 +1856,7 @@ KNOWLEDGE_TOOLS = [
     },
     {
         "name": "knowledge.context_mark",
-        "description": "Record knowledge activation event (epistemic correction / sigil). Marks which documents were consulted, calculates confidence score using promotion/decay mechanics, and promotes high-quality docs to 'hot' for instant recall. This is how the Developer Sigil tracks whether stored corrections are actually being used.",
+        "description": "Record knowledge activation event (epistemic correction / sigil). Marks which documents were consulted, calculates confidence score using promotion/decay mechanics, and promotes high-quality docs to 'hot' for instant recall. Tracks whether stored corrections are actually being used.",
         "inputSchema": {
             "type": "object",
             "properties": {
