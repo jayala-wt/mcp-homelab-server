@@ -25,8 +25,8 @@ DB_FINANCIAL_DOCS = DATA_DIR / "financial_docs.db"
 DB_KNOWLEDGE = DATA_DIR / "knowledge.db"
 
 # Config file paths
-CONFIG_GMAIL = CONFIG_DIR / "gmail_credentials.json"
-CONFIG_GMAIL_TOKEN = CONFIG_DIR / "gmail_token.json"
+CONFIG_OAUTH = CONFIG_DIR / "oauth_credentials.json"
+CONFIG_OAUTH_TOKEN = CONFIG_DIR / "oauth_token.json"
 CONFIG_PLEX = CONFIG_DIR / "plex_config.json"
 CONFIG_LINKEDIN = CONFIG_DIR / "linkedin_api.json"
 CONFIG_LINKEDIN_TOKEN = CONFIG_DIR / "linkedin_token.json"
